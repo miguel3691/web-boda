@@ -168,6 +168,7 @@ export const rsvpTexts = {
   submitButton: "Enviar confirmación",
   submitButtonLoading: "Enviando...",
   successMessage: "Gracias por confirmar tu asistencia.",
+  successMessageNoAttendance: "Gracias por enviarnos tu respuesta.",
 } as const;
 
 /** Email al que se envían las confirmaciones RSVP (backend) */

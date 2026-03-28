@@ -9,6 +9,7 @@ import { rsvpSchema, type RsvpFormData, ALLERGY_OPTIONS } from "@/lib/rsvp-schem
 import { rsvpTexts } from "@/config/wedding";
 
 type SubmitStatus = "idle" | "loading" | "success" | "error";
+type AttendanceValue = RsvpFormData["asistira"] | null;
 
 const ALLERGY_LABELS: Record<(typeof ALLERGY_OPTIONS)[number], string> = {
   sin_gluten: "Sin gluten / Celíaco",
@@ -28,6 +29,7 @@ export function RSVPSection() {
   const isInView = useInView(formRef, { once: true, margin: "-40px 0px -40px 0px" });
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [lastSubmittedAttendance, setLastSubmittedAttendance] = useState<AttendanceValue>(null);
 
   const {
     control,
@@ -38,6 +40,7 @@ export function RSVPSection() {
     formState: { errors, isSubmitting },
   } = useForm<RsvpFormData>({
     resolver: zodResolver(rsvpSchema) as Resolver<RsvpFormData>,
+    shouldUnregister: true,
     defaultValues: {
       email: "",
       asistira: undefined,
@@ -73,10 +76,42 @@ export function RSVPSection() {
     setSubmitStatus("loading");
     setSubmitError(null);
     try {
+      const cleanedGuests = data.guests.map((guest) => {
+        const name = guest.name.trim();
+        const hasDietaryRestrictions =
+          data.asistira === "si" ? guest.hasDietaryRestrictions : "no";
+        if (hasDietaryRestrictions === "no") {
+          return {
+            name,
+            hasDietaryRestrictions: "no" as const,
+            dietaryRestrictions: null,
+          };
+        }
+        return {
+          name,
+          hasDietaryRestrictions: "si" as const,
+          dietaryRestrictions: {
+            alergias: guest.dietaryRestrictions?.alergias ?? [],
+            other: guest.dietaryRestrictions?.other?.trim() ?? "",
+          },
+        };
+      });
+
+      // Payload normalizado para la API real de RSVP.
+      const payload = {
+        attendance: data.asistira,
+        email: data.email,
+        guests: cleanedGuests,
+        message: data.mensaje,
+        // Compatibilidad con el shape actual del formulario.
+        asistira: data.asistira,
+        mensaje: data.mensaje,
+      };
+
       const res = await fetch("/api/rsvp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -84,6 +119,7 @@ export function RSVPSection() {
         setSubmitError(json?.error ?? "Algo ha fallado. Inténtalo de nuevo.");
         return;
       }
+      setLastSubmittedAttendance(data.asistira);
       setSubmitStatus("success");
       reset();
     } catch {
@@ -364,7 +400,11 @@ export function RSVPSection() {
                   role="status"
                 >
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--accent-rose)]" aria-hidden />
-                  <p>{rsvpTexts.successMessage}</p>
+                  <p>
+                    {lastSubmittedAttendance === "no"
+                      ? rsvpTexts.successMessageNoAttendance
+                      : rsvpTexts.successMessage}
+                  </p>
                 </div>
               )}
               {submitStatus === "error" && submitError && (

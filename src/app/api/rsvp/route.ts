@@ -1,61 +1,172 @@
-/**
- * POST /api/rsvp
- *
- * Recibe el formulario RSVP, valida los datos y envía un correo a los novios
- * usando Resend.
- *
- * Configuración necesaria:
- * - RESEND_API_KEY: API key de Resend (https://resend.com/api-keys).
- * - FROM_EMAIL (opcional): Remitente del correo. Si no se define, se usa
- *   "Boda <onboarding@resend.dev>" (dominio de prueba de Resend; solo permite
- *   enviar a la cuenta con la que te registraste). Para producción, verifica
- *   tu dominio en https://resend.com/domains y usa ej. "Boda <rsvp@tudominio.com>".
- *
- * Probar en local:
- * 1. Crea cuenta en Resend y obtén RESEND_API_KEY.
- * 2. Añade en .env.local: RESEND_API_KEY=re_xxxx
- * 3. Con el dominio de prueba (onboarding@resend.dev), Resend solo envía a
- *    el email de tu cuenta; para recibir en molina.miguel369@gmail.com,
- *    verifica un dominio o usa ese email como cuenta en Resend.
- */
-
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { rsvpSchema, ALLERGY_OPTIONS, type RsvpFormData } from "@/lib/rsvp-schema";
-import { rsvpEmailTo } from "@/config/wedding";
 
-const ALLERGY_LABELS: Record<(typeof ALLERGY_OPTIONS)[number], string> = {
-  sin_gluten: "Sin gluten / Celíaco",
-  sin_lactosa: "Sin lactosa",
-  vegetariano: "Vegetariano",
-  vegano: "Vegano",
-  alergia_frutos_secos: "Alergia a frutos secos",
-  alergia_mariscos: "Alergia a mariscos",
+// Forzamos Node.js runtime para compatibilidad serverless con SDK de Resend.
+export const runtime = "nodejs";
+type DietaryRestrictions = {
+  alergias?: string[] | null;
+  other?: string | null;
+} | null;
+
+type GuestInput = {
+  name?: string | null;
+  hasDietaryRestrictions?: string | boolean | null;
+  dietaryRestrictions?: DietaryRestrictions;
 };
 
-function getGuestRestrictionsText(guest: RsvpFormData["guests"][number]): string {
-  if (guest.hasDietaryRestrictions !== "si" || !guest.dietaryRestrictions) {
-    return "Ninguna";
-  }
-  const allergies = guest.dietaryRestrictions.alergias ?? [];
-  const optionsText =
-    allergies.length > 0
-      ? allergies.map((k) => ALLERGY_LABELS[k as keyof typeof ALLERGY_LABELS]).join(", ")
-      : "";
-  const otherText = guest.dietaryRestrictions.other?.trim() ?? "";
-  return [optionsText, otherText].filter(Boolean).join(" | ") || "No especificadas";
+type RsvpInput = {
+  attendance?: string | null;
+  asistira?: string | null; // compatibilidad con payload actual
+  email?: string | null;
+  guests?: GuestInput[] | null;
+  mensaje?: string | null;
+  message?: string | null; // compatibilidad por si cambia el cliente
+};
+
+type NormalizedGuest = {
+  name: string;
+  hasDietaryRestrictions: boolean;
+  allergies: string[];
+  otherRestrictions: string;
+};
+
+type NormalizedRsvp = {
+  attendance: "yes" | "no";
+  contactEmail: string;
+  guests: NormalizedGuest[];
+  message: string;
+};
+
+type NormalizationResult =
+  | { ok: true; data: NormalizedRsvp }
+  | { ok: false; error: string };
+
+function toAttendance(value: unknown): "yes" | "no" | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["yes", "si", "sí", "true"].includes(normalized)) return "yes";
+  if (["no", "false"].includes(normalized)) return "no";
+  return null;
 }
 
-function buildEmailHtml(data: RsvpFormData & { sentAt: string }): string {
-  const asistenciaText = data.asistira === "si" ? "Sí asistirá" : "No podrá asistir";
-  const guestsRows = data.guests
-    .map((guest, idx) => {
-      const guestName = guest.name || `Invitado ${idx + 1}`;
-      const restrictions = getGuestRestrictionsText(guest);
-      return `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>${escapeHtml(guestName)}</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${escapeHtml(restrictions)}</td></tr>`;
+function toBoolean(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return ["yes", "si", "sí", "true"].includes(normalized);
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizePayload(input: RsvpInput): NormalizationResult {
+  const attendance = toAttendance(input.attendance ?? input.asistira);
+  if (!attendance) {
+    return { ok: false, error: "Debes indicar asistencia (attendance)." };
+  }
+
+  const guestsRaw = Array.isArray(input.guests) ? input.guests : [];
+  if (guestsRaw.length === 0) {
+    return { ok: false, error: "Debes indicar al menos un invitado con nombre." };
+  }
+  if (guestsRaw.length > 6) {
+    return { ok: false, error: "El máximo permitido es 6 invitados." };
+  }
+
+  const guests = guestsRaw
+    .map((guest): NormalizedGuest | null => {
+      const name = typeof guest?.name === "string" ? guest.name.trim() : "";
+      if (!name) return null;
+
+      const hasDietaryRestrictions =
+        attendance === "yes" ? toBoolean(guest?.hasDietaryRestrictions) : false;
+      const restrictions = guest?.dietaryRestrictions;
+      const allergies =
+        hasDietaryRestrictions && restrictions && Array.isArray(restrictions.alergias)
+          ? restrictions.alergias.filter((item): item is string => typeof item === "string")
+          : [];
+      const otherRestrictions =
+        hasDietaryRestrictions &&
+        restrictions &&
+        typeof restrictions.other === "string"
+          ? restrictions.other.trim()
+          : "";
+
+      return {
+        name,
+        hasDietaryRestrictions,
+        allergies,
+        otherRestrictions,
+      };
+    })
+    .filter((guest): guest is NormalizedGuest => guest !== null);
+
+  if (guests.length === 0) {
+    return { ok: false, error: "Debes indicar al menos un invitado con nombre." };
+  }
+
+  const contactEmail = typeof input.email === "string" ? input.email.trim() : "";
+  if (contactEmail && !isValidEmail(contactEmail)) {
+    return { ok: false, error: "El email de contacto no es válido." };
+  }
+
+  if (attendance === "yes") {
+    const invalidDietary = guests.some((guest) => {
+      if (!guest.hasDietaryRestrictions) return false;
+      return guest.allergies.length === 0 && guest.otherRestrictions.length === 0;
+    });
+    if (invalidDietary) {
+      return {
+        ok: false,
+        error:
+          "Si indicas restricciones alimentarias para un invitado, selecciona al menos una o escribe una restricción adicional.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      attendance,
+      contactEmail,
+      guests,
+      message:
+        typeof input.mensaje === "string"
+          ? input.mensaje.trim()
+          : typeof input.message === "string"
+            ? input.message.trim()
+            : "",
+    },
+  };
+}
+
+function getGuestRestrictionsText(guest: NormalizedGuest, attendance: "yes" | "no"): string {
+  if (attendance === "no") return "No aplica (no asistirá)";
+  if (!guest.hasDietaryRestrictions) return "Sin restricciones indicadas";
+  const optionsText = guest.allergies.join(", ");
+  return [optionsText, guest.otherRestrictions].filter(Boolean).join(" | ") || "Sin restricciones indicadas";
+}
+
+function getGuestAttendanceLabel(attendance: "yes" | "no"): string {
+  return attendance === "yes" ? "Incluido en la confirmación (asistirá)" : "No asistirá";
+}
+
+function buildEmailHtml(data: NormalizedRsvp & { sentAt: string }): string {
+  const attendanceText = data.attendance === "yes" ? "Sí, asistiré" : "No, no podré asistir";
+  const namesSummary = data.guests.map((g) => g.name).join(", ");
+  const guestBlocks = data.guests
+    .map((guest, index) => {
+      const restrictions = getGuestRestrictionsText(guest, data.attendance);
+      const guestAttendance = getGuestAttendanceLabel(data.attendance);
+      return `
+      <div style="border: 1px solid #eee; border-radius: 10px; padding: 12px 14px; margin-top: ${index === 0 ? "0" : "10px"};">
+        <p style="margin: 0 0 6px; font-weight: 600; color: #5c3d4a;">Invitado ${index + 1}: ${escapeHtml(guest.name)}</p>
+        <p style="margin: 0 0 4px;"><strong>Estado:</strong> ${escapeHtml(guestAttendance)}</p>
+        <p style="margin: 0;"><strong>Alergias / restricciones:</strong> ${escapeHtml(restrictions)}</p>
+      </div>`;
     })
     .join("");
-  const namesSummary = data.guests.map((g) => g.name).join(", ");
 
   return `
 <!DOCTYPE html>
@@ -64,46 +175,50 @@ function buildEmailHtml(data: RsvpFormData & { sentAt: string }): string {
 <body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #333; max-width: 560px; margin: 0 auto; padding: 24px;">
   <h1 style="color: #5c3d4a; font-size: 1.5rem;">Nueva confirmación de asistencia</h1>
   <p style="margin-top: 8px; color: #666;">Enviado el ${data.sentAt}</p>
-  <table style="width: 100%; border-collapse: collapse; margin-top: 24px;">
-    <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Invitados</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${escapeHtml(namesSummary)}</td></tr>
-    <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Email</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${data.email ? escapeHtml(data.email) : "—"}</td></tr>
-    <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>¿Asistirá?</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${asistenciaText}</td></tr>
-    <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Número de invitados</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${data.guests.length}</td></tr>
-  </table>
-  <h2 style="margin-top: 24px; color: #5c3d4a; font-size: 1.1rem;">Alergias por invitado</h2>
-  <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-    ${guestsRows}
-  </table>
-  ${data.mensaje ? `<p style="margin-top: 24px;"><strong>Mensaje para los novios:</strong></p><p style="white-space: pre-wrap; background: #faf8f6; padding: 12px; border-radius: 8px;">${escapeHtml(data.mensaje)}</p>` : ""}
+  <div style="margin-top: 20px; border: 1px solid #eee; border-radius: 10px; padding: 14px;">
+    <p style="margin: 0 0 8px;"><strong>Estado de asistencia:</strong> ${attendanceText}</p>
+    <p style="margin: 0 0 8px;"><strong>Email de contacto:</strong> ${data.contactEmail ? escapeHtml(data.contactEmail) : "—"}</p>
+    <p style="margin: 0 0 8px;"><strong>Número total de invitados:</strong> ${data.guests.length}</p>
+    <p style="margin: 0;"><strong>Lista de invitados:</strong> ${escapeHtml(namesSummary)}</p>
+  </div>
+  <h2 style="margin-top: 24px; margin-bottom: 10px; color: #5c3d4a; font-size: 1.1rem;">Invitados</h2>
+  ${guestBlocks}
+  ${data.message ? `<div style="margin-top: 24px;"><p style="margin: 0 0 8px;"><strong>Mensaje para los novios:</strong></p><p style="white-space: pre-wrap; background: #faf8f6; padding: 12px; border-radius: 8px; margin: 0;">${escapeHtml(data.message)}</p></div>` : ""}
+  <p style="margin-top: 20px; color: #666; font-size: 12px;">Fecha/hora de envío: ${data.sentAt}</p>
 </body>
 </html>
   `.trim();
 }
 
-function buildEmailText(data: RsvpFormData & { sentAt: string }): string {
-  const asistenciaText = data.asistira === "si" ? "Sí asistirá" : "No podrá asistir";
+function buildEmailText(data: NormalizedRsvp & { sentAt: string }): string {
+  const attendanceText = data.attendance === "yes" ? "Sí, asistiré" : "No, no podré asistir";
   const namesSummary = data.guests.map((g) => g.name).join(", ");
-  const guestLines = data.guests.map((guest, idx) => {
-    const guestName = guest.name || `Invitado ${idx + 1}`;
-    const restrictions = getGuestRestrictionsText(guest);
-    return `- ${guestName}: ${restrictions}`;
+  const guestLines = data.guests.map((guest, index) => {
+    const restrictions = getGuestRestrictionsText(guest, data.attendance);
+    const guestAttendance = getGuestAttendanceLabel(data.attendance);
+    return [
+      `Invitado ${index + 1}: ${guest.name}`,
+      `  Estado: ${guestAttendance}`,
+      `  Alergias / restricciones: ${restrictions}`,
+    ].join("\n");
   });
 
   const lines = [
-    `Nueva confirmación de asistencia`,
+    "Nueva confirmación de asistencia",
     `Enviado el ${data.sentAt}`,
     "",
-    `Invitados: ${namesSummary}`,
-    `Email: ${data.email ?? "—"}`,
-    `¿Asistirá?: ${asistenciaText}`,
-    `Número de invitados: ${data.guests.length}`,
+    `Asistencia: ${attendanceText}`,
+    `Email de contacto: ${data.contactEmail || "—"}`,
+    `Total de invitados: ${data.guests.length}`,
+    `Lista de invitados: ${namesSummary}`,
     "",
-    "Alergias por invitado:",
+    "Invitados:",
     ...guestLines,
   ];
-  if (data.mensaje) {
-    lines.push("", "Mensaje para los novios:", data.mensaje);
+  if (data.message) {
+    lines.push("", "Mensaje para los novios:", data.message);
   }
+  lines.push("", `Fecha/hora de envío: ${data.sentAt}`);
   return lines.join("\n");
 }
 
@@ -116,15 +231,23 @@ function escapeHtml(s: string): string {
 }
 
 export async function POST(request: Request) {
-  if (request.method !== "POST") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
-
   const apiKey = process.env.RESEND_API_KEY;
+  // Destinatario final de confirmaciones RSVP.
+  const toEmail = process.env.RSVP_TO_EMAIL || "molina.miguel369@gmail.com";
+  // Remitente verificado en Resend (obligatorio en producción).
+  const fromEmail = process.env.RSVP_FROM_EMAIL;
+
   if (!apiKey) {
     console.error("[RSVP] RESEND_API_KEY no está configurada");
     return NextResponse.json(
       { error: "El servicio de envío no está configurado" },
+      { status: 500 }
+    );
+  }
+  if (!fromEmail) {
+    console.error("[RSVP] RSVP_FROM_EMAIL no está configurada");
+    return NextResponse.json(
+      { error: "El remitente de RSVP no está configurado" },
       { status: 500 }
     );
   }
@@ -139,37 +262,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsed = rsvpSchema.safeParse(body);
-  if (!parsed.success) {
-    const first = parsed.error.flatten().fieldErrors;
-    const message = Object.values(first).flat().join(" ") || "Datos inválidos";
-    return NextResponse.json({ error: message }, { status: 400 });
+  const normalized = normalizePayload((body ?? {}) as RsvpInput);
+  if (!normalized.ok) {
+    return NextResponse.json({ error: normalized.error }, { status: 400 });
   }
+  const payload = normalized.data;
 
-  const data = parsed.data;
   const sentAt = new Date().toLocaleString("es-ES", {
     dateStyle: "long",
     timeStyle: "short",
   });
 
-  const fromEmail =
-    process.env.FROM_EMAIL || "Boda <onboarding@resend.dev>";
-
   const resend = new Resend(apiKey);
   const html = buildEmailHtml({
-    ...data,
+    ...payload,
     sentAt,
   });
   const text = buildEmailText({
-    ...data,
+    ...payload,
     sentAt,
   });
-  const leadGuest = data.guests[0]?.name ?? "Invitado";
+  const leadGuest = payload.guests[0]?.name ?? "Invitado";
 
-  const { data: sendData, error } = await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: fromEmail,
-    to: [rsvpEmailTo],
-    subject: `RSVP: ${leadGuest} (+${Math.max(data.guests.length - 1, 0)}) - ${data.asistira === "si" ? "Asistirá" : "No asistirá"}`,
+    to: [toEmail],
+    subject: `RSVP: ${leadGuest} (+${Math.max(payload.guests.length - 1, 0)}) - ${payload.attendance === "yes" ? "Asistirá" : "No asistirá"}`,
     html,
     text,
   });
@@ -182,5 +300,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, id: sendData?.id });
+  return NextResponse.json({ ok: true });
 }

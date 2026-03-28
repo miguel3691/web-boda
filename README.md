@@ -41,25 +41,42 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 El formulario "Confirma tu asistencia" envía un correo a la dirección configurada en la API usando [Resend](https://resend.com).
 
-### Configuración
+### Configuración local
 
 1. **Copia las variables de ejemplo**
    ```bash
    cp .env.example .env.local
    ```
 
-2. **Configura `RESEND_API_KEY`**
-   - Crea una cuenta en [Resend](https://resend.com).
-   - Ve a [API Keys](https://resend.com/api-keys) y crea una clave.
-   - En `.env.local` define:
+2. **Configura variables de entorno en `.env.local`**
    ```env
    RESEND_API_KEY=re_xxxxxxxxxxxx
+   RSVP_TO_EMAIL=molina.miguel369@gmail.com
+   RSVP_FROM_EMAIL="Boda <onboarding@resend.dev>"
    ```
 
-3. **Remitente (opcional)**  
-   Si no defines `FROM_EMAIL`, se usa `Boda <onboarding@resend.dev>`. Con ese dominio de prueba, Resend **solo permite enviar al email de la cuenta** con la que te registraste. Para recibir en otra dirección (p. ej. molina.miguel369@gmail.com) tienes que:
-   - verificar un dominio en [Resend Domains](https://resend.com/domains) y definir algo como `FROM_EMAIL="Boda <rsvp@tudominio.com>"`, o  
-   - usar como cuenta de Resend el email donde quieres recibir los RSVP.
+   - `RESEND_API_KEY`: clave de [Resend API Keys](https://resend.com/api-keys)
+   - `RSVP_TO_EMAIL`: email que recibe las respuestas
+   - `RSVP_FROM_EMAIL`: remitente del correo
+
+   Valor temporal recomendado para local:
+   - `RSVP_FROM_EMAIL="Boda <onboarding@resend.dev>"`
+   - Nota: en sandbox de Resend solo podrás enviar al email de tu propia cuenta Resend.
+
+### Configuración en Vercel (producción)
+
+1. Abre tu proyecto en Vercel.
+2. Ve a **Settings → Environment Variables**.
+3. Crea estas 3 variables para los entornos necesarios (Production/Preview/Development):
+   - `RESEND_API_KEY`
+   - `RSVP_TO_EMAIL`
+   - `RSVP_FROM_EMAIL`
+4. Redeploy del proyecto para que tomen efecto.
+
+Para producción, configura `RSVP_FROM_EMAIL` con un remitente de dominio verificado en Resend, por ejemplo:
+```env
+RSVP_FROM_EMAIL="Boda <rsvp@tudominio.com>"
+```
 
 ### Probar en local
 
@@ -67,4 +84,4 @@ El formulario "Confirma tu asistencia" envía un correo a la dirección configur
 2. Abre la web, rellena el formulario RSVP y envía.
 3. Revisa el correo en la bandeja configurada (o en la cuenta Resend si usas `onboarding@resend.dev`).
 
-La ruta de la API está en `src/app/api/rsvp/route.ts`; ahí se valida el body y se construye y envía el email. No expongas `RESEND_API_KEY` en el frontend.
+La ruta de la API está en `src/app/api/rsvp/route.ts`; ahí se valida el body y se construye y envía el email. Está preparada para entorno serverless (runtime `nodejs`). No expongas `RESEND_API_KEY` en el frontend.

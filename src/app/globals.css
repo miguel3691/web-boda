@@ -9,6 +9,10 @@
   --text-muted: #8b7a7e;
   --border-soft: rgba(201, 169, 166, 0.4);
   --shadow-soft: 0 4px 24px rgba(92, 61, 74, 0.06);
+  /* Footer: bloque rosado/burdeos suave */
+  --footer-bg: #8f6b6f;
+  --footer-text: rgba(255, 255, 255, 0.95);
+  --footer-text-muted: rgba(255, 255, 255, 0.85);
 }
 
 @theme inline {
@@ -30,15 +34,16 @@ body {
   font-family: var(--font-sans);
 }
 
-/* ── Utility: section padding (mucho aire vertical) ───────────────────────── */
+/* ── Utility: section padding (consistente entre secciones) ───────────────── */
 .section-padding {
-  @apply py-16 md:py-24 lg:py-28;
+  @apply py-14 sm:py-20 md:py-24 lg:py-28;
 }
 
-/* ── Utility: títulos en script elegante ─────────────────────────────────── */
+/* ── Utility: títulos en script (escalado responsive) ─────────────────────── */
 .section-title-script {
   font-family: var(--font-script);
-  @apply text-4xl md:text-5xl lg:text-6xl text-[var(--text-primary)] tracking-wide;
+  @apply text-[var(--text-primary)] tracking-wide;
+  font-size: clamp(1.875rem, 5vw + 1rem, 3.75rem);
 }
 
 /* ── Utility: kicker / etiqueta sobre el título ───────────────────────────── */
@@ -50,6 +55,40 @@ body {
 /* ── Utility: contenedor centrado y estrecho (estilo editorial) ───────────── */
 .centered-container {
   @apply mx-auto w-full max-w-2xl px-5 sm:px-6 md:px-8 text-center;
+}
+
+/* Contenido de sección: ancho máximo unificado y centrado */
+.section-content {
+  @apply mx-auto w-full max-w-2xl text-center;
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .section-content { padding-left: 1.5rem; padding-right: 1.5rem; }
+}
+@media (min-width: 768px) {
+  .section-content { padding-left: 2rem; padding-right: 2rem; }
+}
+
+/* Anillo de foco accesible (reutilizable) */
+.focus-ring {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-rose)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)];
+}
+
+/* Respetar preferencia de movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-bounce-subtle { animation: none; }
+}
+
+/* ── Hero: centrado visual (fuentes script y tracking) ────────────────────── */
+.hero-script-optical {
+  /* Great_Vibes: caja visual desplazada a la derecha; compensar para eje del "&" */
+  transform: translateX(-10px);
+}
+.hero-tracking-compensate {
+  /* letter-spacing añade espacio a la derecha; compensar para centrado óptico */
+  margin-right: -0.2em;
 }
 
 /* ── Utility: card elegante (fondo, borde, sombra suave) ──────────────────── */
@@ -71,4 +110,100 @@ body {
     transparent
   );
   @apply w-full max-w-xs mx-auto;
+}
+
+/* ── Hero: textura suave tipo papel (sutil) ───────────────────────────────── */
+.hero-paper-texture {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 50%, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ── Animación sutil flecha CTA hero (sugerir scroll) ────────────────────── */
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
+/* ── Countdown: cajas con borde y sombra muy suaves ──────────────────────── */
+.countdown-box {
+  background: var(--background-card);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 2px 12px rgba(92, 61, 74, 0.04);
+  @apply rounded-md;
+}
+
+/* ── Location: card grande y mapa responsive ────────────────────────────── */
+.location-card {
+  background: var(--background-card);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
+  @apply rounded-md overflow-hidden;
+}
+
+.location-map-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  min-height: 200px;
+}
+@media (min-width: 640px) {
+  .location-map-wrap { min-height: 220px; }
+}
+
+.location-map-wrap iframe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  border: 0;
+}
+
+/* ── RSVP: checkbox con checkmark cuando está marcado ────────────────────── */
+.peer:checked ~ .rsvp-checkbox-box {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+}
+
+/* ── Footer: decoraciones laterales placeholder ──────────────────────────── */
+.footer-decoration-right {
+  background-image: radial-gradient(
+      circle at 20% 30%,
+      rgba(255, 255, 255, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 60% 70%,
+      rgba(255, 255, 255, 0.12) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 40%
+    );
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.footer-decoration-left {
+  background-image: radial-gradient(
+      circle at 80% 30%,
+      rgba(255, 255, 255, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 70%,
+      rgba(255, 255, 255, 0.12) 0%,
+      transparent 45%
+    );
+  background-repeat: no-repeat;
+  background-position: center;
 }

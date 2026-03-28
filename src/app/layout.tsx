@@ -5,6 +5,8 @@ import {
   Lato,
 } from "next/font/google";
 import "./globals.css";
+import { AudioToggle } from "@/components/AudioToggle";
+import { DecorativeSideImages } from "@/components/DecorativeSideImages";
 
 const fontScript = Great_Vibes({
   weight: "400",
@@ -39,7 +41,11 @@ export default function RootLayout({
       <body
         className={`${fontScript.variable} ${fontSerif.variable} ${fontSans.variable} font-sans antialiased`}
       >
-        {children}
+        <DecorativeSideImages />
+        <div className="relative z-10 min-h-screen ml-[88px] mr-[88px] sm:ml-[180px] sm:mr-[180px] md:ml-[260px] md:mr-[260px] lg:ml-[300px] lg:mr-[300px]">
+          {children}
+        </div>
+        <AudioToggle />
       </body>
     </html>
   );

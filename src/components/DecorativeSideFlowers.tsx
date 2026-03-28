@@ -28,7 +28,7 @@ export function DecorativeSideFlowers() {
       {positions.map(({ id, side, area }) => (
         <div
           key={id}
-          className={`absolute ${side === "left" ? "left-0" : "right-0"} ${areaClasses[area]} w-20 md:w-28 lg:w-32 opacity-30`}
+          className={`absolute ${side === "left" ? "left-0" : "right-0"} ${areaClasses[area]} w-14 opacity-20 sm:w-20 sm:opacity-25 md:w-24 md:opacity-30 lg:w-28`}
         >
           {/* Placeholder: div decorativo (sustituir por /public/decor/ cuando existan assets) */}
           <div

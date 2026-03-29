@@ -34,23 +34,6 @@ export const rsvpSchema = z
       .min(1, "Debe haber al menos un invitado")
       .max(6, "Máximo 6 invitados"),
     mensaje: z.string().optional(),
-  })
-  .superRefine((form, ctx) => {
-    if (form.asistira !== "si") return;
-
-    form.guests.forEach((guest, index) => {
-      if (guest.hasDietaryRestrictions !== "si") return;
-      const restrictions = guest.dietaryRestrictions;
-      const hasAnyAllergy = (restrictions?.alergias?.length ?? 0) > 0;
-      const hasOther = (restrictions?.other?.trim()?.length ?? 0) > 0;
-      if (!hasAnyAllergy && !hasOther) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Selecciona al menos una restricción o indica otra.",
-          path: ["guests", index, "dietaryRestrictions"],
-        });
-      }
-    });
   });
 
 export type RsvpFormData = z.infer<typeof rsvpSchema>;

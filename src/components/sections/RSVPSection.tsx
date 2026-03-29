@@ -422,7 +422,7 @@ export function RSVPSection() {
                 <button
                   type="submit"
                   disabled={isSubmitting || isSending}
-                  className="focus-ring rsvp-submit-btn inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-md px-6 py-3.5 text-sm font-medium text-white shadow-[0_2px_12px_rgba(92,61,74,0.12)] transition-opacity hover:opacity-95 disabled:opacity-70 sm:w-auto"
+                  className="focus-ring rsvp-submit-btn inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-md px-6 py-3.5 text-sm font-medium text-white shadow-[0_2px_12px_rgba(92,61,74,0.12)] transition-opacity hover:opacity-95 disabled:opacity-70 cursor-pointer disabled:cursor-not-allowed sm:w-auto"
                   style={{ backgroundColor: "var(--text-primary)" }}
                 >
                   {isSending ? (

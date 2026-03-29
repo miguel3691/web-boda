@@ -111,20 +111,6 @@ function normalizePayload(input: RsvpInput): NormalizationResult {
     return { ok: false, error: "El email de contacto no es válido." };
   }
 
-  if (attendance === "yes") {
-    const invalidDietary = guests.some((guest) => {
-      if (!guest.hasDietaryRestrictions) return false;
-      return guest.allergies.length === 0 && guest.otherRestrictions.length === 0;
-    });
-    if (invalidDietary) {
-      return {
-        ok: false,
-        error:
-          "Si indicas restricciones alimentarias para un invitado, selecciona al menos una o escribe una restricción adicional.",
-      };
-    }
-  }
-
   return {
     ok: true,
     data: {

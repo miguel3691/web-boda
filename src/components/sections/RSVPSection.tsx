@@ -12,12 +12,12 @@ type SubmitStatus = "idle" | "loading" | "success" | "error";
 type AttendanceValue = RsvpFormData["asistira"] | null;
 
 const ALLERGY_LABELS: Record<(typeof ALLERGY_OPTIONS)[number], string> = {
-  sin_gluten: "Sin gluten / Celíaco",
-  sin_lactosa: "Sin lactosa",
-  vegetariano: "Vegetariano",
-  vegano: "Vegano",
-  alergia_frutos_secos: "Alergia a frutos secos",
-  alergia_mariscos: "Alergia a mariscos",
+  glutenFree: "Sin gluten / Celíaco",
+  lactoseFree: "Sin lactosa",
+  vegetarian: "Vegetariano",
+  vegan: "Vegano",
+  nuts: "Alergia a frutos secos",
+  seafood: "Alergia a mariscos",
 };
 
 const inputBase =
@@ -37,6 +37,8 @@ export function RSVPSection() {
     handleSubmit,
     reset,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<RsvpFormData>({
     resolver: zodResolver(rsvpSchema) as Resolver<RsvpFormData>,
@@ -47,8 +49,16 @@ export function RSVPSection() {
       guests: [
         {
           name: "",
-          hasDietaryRestrictions: "no",
-          dietaryRestrictions: null,
+          hasDietaryRestrictions: null,
+          dietaryRestrictions: {
+            glutenFree: false,
+            lactoseFree: false,
+            vegetarian: false,
+            vegan: false,
+            nuts: false,
+            seafood: false,
+            other: "",
+          },
         },
       ],
       mensaje: "",
@@ -65,14 +75,54 @@ export function RSVPSection() {
   useEffect(() => {
     if (attendance !== "no") return;
     guests.forEach((_, index) => {
-      setValue(`guests.${index}.hasDietaryRestrictions`, "no", { shouldValidate: false });
-      setValue(`guests.${index}.dietaryRestrictions`, null, { shouldValidate: false });
+      setValue(`guests.${index}.hasDietaryRestrictions`, null, { shouldValidate: false });
+      setValue(
+        `guests.${index}.dietaryRestrictions`,
+        {
+          glutenFree: false,
+          lactoseFree: false,
+          vegetarian: false,
+          vegan: false,
+          nuts: false,
+          seafood: false,
+          other: "",
+        },
+        { shouldValidate: false }
+      );
     });
   }, [attendance, guests.length, setValue]);
 
   const isSending = submitStatus === "loading";
 
   const onSubmit = async (data: RsvpFormData) => {
+    clearErrors("guests");
+    if (data.asistira === "si") {
+      let hasDietaryValidationError = false;
+      data.guests.forEach((guest, index) => {
+        if (guest.hasDietaryRestrictions !== "si") return;
+        const hasAnyAllergy =
+          guest.dietaryRestrictions.glutenFree ||
+          guest.dietaryRestrictions.lactoseFree ||
+          guest.dietaryRestrictions.vegetarian ||
+          guest.dietaryRestrictions.vegan ||
+          guest.dietaryRestrictions.nuts ||
+          guest.dietaryRestrictions.seafood;
+        const hasOther = (guest.dietaryRestrictions?.other?.trim()?.length ?? 0) > 0;
+        if (!hasAnyAllergy && !hasOther) {
+          hasDietaryValidationError = true;
+          setError(`guests.${index}.dietaryRestrictions`, {
+            type: "manual",
+            message: "Marca una alergia o escribe una restricción en \"Otras alergias\".",
+          });
+        }
+      });
+      if (hasDietaryValidationError) {
+        setSubmitStatus("error");
+        setSubmitError("Revisa las restricciones alimentarias marcadas como \"Sí\".");
+        return;
+      }
+    }
+
     setSubmitStatus("loading");
     setSubmitError(null);
     try {
@@ -91,7 +141,12 @@ export function RSVPSection() {
           name,
           hasDietaryRestrictions: "si" as const,
           dietaryRestrictions: {
-            alergias: guest.dietaryRestrictions?.alergias ?? [],
+            glutenFree: guest.dietaryRestrictions.glutenFree,
+            lactoseFree: guest.dietaryRestrictions.lactoseFree,
+            vegetarian: guest.dietaryRestrictions.vegetarian,
+            vegan: guest.dietaryRestrictions.vegan,
+            nuts: guest.dietaryRestrictions.nuts,
+            seafood: guest.dietaryRestrictions.seafood,
             other: guest.dietaryRestrictions?.other?.trim() ?? "",
           },
         };
@@ -283,7 +338,12 @@ export function RSVPSection() {
                                   {...register(`guests.${index}.hasDietaryRestrictions`, {
                                     onChange: () =>
                                       setValue(`guests.${index}.dietaryRestrictions`, {
-                                        alergias: [],
+                                        glutenFree: false,
+                                        lactoseFree: false,
+                                        vegetarian: false,
+                                        vegan: false,
+                                        nuts: false,
+                                        seafood: false,
                                         other: "",
                                       }),
                                   })}
@@ -300,7 +360,15 @@ export function RSVPSection() {
                                   className="peer sr-only"
                                   {...register(`guests.${index}.hasDietaryRestrictions`, {
                                     onChange: () =>
-                                      setValue(`guests.${index}.dietaryRestrictions`, null),
+                                      setValue(`guests.${index}.dietaryRestrictions`, {
+                                        glutenFree: false,
+                                        lactoseFree: false,
+                                        vegetarian: false,
+                                        vegan: false,
+                                        nuts: false,
+                                        seafood: false,
+                                        other: "",
+                                      }),
                                   })}
                                 />
                                 <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[var(--border-soft)] transition-colors peer-checked:border-[var(--text-primary)] peer-checked:bg-[var(--text-primary)]" />
@@ -330,8 +398,7 @@ export function RSVPSection() {
                                     <input
                                       type="checkbox"
                                       className="peer sr-only"
-                                      value={key}
-                                      {...register(`guests.${index}.dietaryRestrictions.alergias`)}
+                                      {...register(`guests.${index}.dietaryRestrictions.${key}`)}
                                     />
                                     <span className="rsvp-checkbox-box h-4 w-4 shrink-0 rounded border-2 border-[var(--border-soft)] bg-[var(--background-card)] transition-colors peer-checked:border-[var(--text-primary)] peer-checked:bg-[var(--text-primary)]" />
                                     <span className="text-sm text-[var(--text-primary)]">
@@ -351,6 +418,11 @@ export function RSVPSection() {
                                   {...register(`guests.${index}.dietaryRestrictions.other`)}
                                 />
                               </div>
+                              {errors.guests?.[index]?.dietaryRestrictions?.message && (
+                                <p className="rsvp-error text-xs text-[var(--text-muted)]">
+                                  {errors.guests[index]?.dietaryRestrictions?.message}
+                                </p>
+                              )}
                             </div>
                           )}
                         </>
@@ -369,8 +441,16 @@ export function RSVPSection() {
                     onClick={() =>
                       append({
                         name: "",
-                        hasDietaryRestrictions: "no",
-                        dietaryRestrictions: null,
+                        hasDietaryRestrictions: null,
+                        dietaryRestrictions: {
+                          glutenFree: false,
+                          lactoseFree: false,
+                          vegetarian: false,
+                          vegan: false,
+                          nuts: false,
+                          seafood: false,
+                          other: "",
+                        },
                       })
                     }
                     className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-[var(--border-soft)] bg-[var(--background-card)] px-4 py-2 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--accent-rose)]/10"

@@ -5,6 +5,12 @@ import { Resend } from "resend";
 export const runtime = "nodejs";
 type DietaryRestrictions = {
   alergias?: string[] | null;
+  glutenFree?: boolean | null;
+  lactoseFree?: boolean | null;
+  vegetarian?: boolean | null;
+  vegan?: boolean | null;
+  nuts?: boolean | null;
+  seafood?: boolean | null;
   other?: string | null;
 } | null;
 
@@ -82,10 +88,22 @@ function normalizePayload(input: RsvpInput): NormalizationResult {
       const hasDietaryRestrictions =
         attendance === "yes" ? toBoolean(guest?.hasDietaryRestrictions) : false;
       const restrictions = guest?.dietaryRestrictions;
-      const allergies =
+      const allergiesFromArray =
         hasDietaryRestrictions && restrictions && Array.isArray(restrictions.alergias)
           ? restrictions.alergias.filter((item): item is string => typeof item === "string")
           : [];
+      const allergiesFromBooleans =
+        hasDietaryRestrictions && restrictions
+          ? ([
+              restrictions.glutenFree ? "Sin gluten / Celíaco" : null,
+              restrictions.lactoseFree ? "Sin lactosa" : null,
+              restrictions.vegetarian ? "Vegetariano" : null,
+              restrictions.vegan ? "Vegano" : null,
+              restrictions.nuts ? "Alergia a frutos secos" : null,
+              restrictions.seafood ? "Alergia a mariscos" : null,
+            ].filter(Boolean) as string[])
+          : [];
+      const allergies = [...allergiesFromArray, ...allergiesFromBooleans];
       const otherRestrictions =
         hasDietaryRestrictions &&
         restrictions &&

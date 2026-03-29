@@ -186,7 +186,6 @@ export function RSVPSection() {
   return (
     <section id="rsvp" className="section-padding">
       <div className="section-content">
-        <p className="section-kicker">RSVP</p>
         <h2
           className="section-title-script mt-2"
           style={{ fontFamily: "var(--font-script)" }}

@@ -50,12 +50,11 @@ export function ScheduleSection() {
   return (
     <section id="schedule" className="section-padding">
       <div ref={ref} className="section-content">
-        <p className="section-kicker">Programa</p>
         <h2
           className="section-title-script mt-2"
           style={{ fontFamily: "var(--font-script)" }}
         >
-          Programa del día
+          Timeline
         </h2>
         <p className="mt-2 text-sm text-[var(--text-muted)] font-sans">
           Nuestra celebración paso a paso

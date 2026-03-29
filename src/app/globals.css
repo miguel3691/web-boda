@@ -1,16 +1,24 @@
 @import "tailwindcss";
 
-/* ── Wedding palette (marfil / rosado / burdeos-malva) ───────────────────── */
+/* ── Wedding palette (marfil / verde eucalipto) ──────────────────────────── */
 :root {
+  /* Nueva paleta base */
+  --color-primary: #6b8f8a;
+  --color-primary-dark: #4f6f6a;
+  --color-primary-light: #afc9c4;
+  --color-muted: #6f807d;
+  --color-border: rgba(107, 143, 138, 0.36);
+
+  /* Aliases usados por componentes actuales */
   --background: #faf8f6;
   --background-card: #fefdfb;
-  --text-primary: #5c3d4a;
-  --accent-rose: #c9a9a6;
-  --text-muted: #8b7a7e;
-  --border-soft: rgba(201, 169, 166, 0.4);
-  --shadow-soft: 0 4px 24px rgba(92, 61, 74, 0.06);
-  /* Footer: bloque rosado/burdeos suave */
-  --footer-bg: #8f6b6f;
+  --text-primary: var(--color-primary-dark);
+  --accent-rose: var(--color-primary);
+  --text-muted: var(--color-muted);
+  --border-soft: var(--color-border);
+  --shadow-soft: 0 4px 24px rgba(79, 111, 106, 0.1);
+  /* Footer en tono eucalipto profundo */
+  --footer-bg: #5a7f79;
   --footer-text: rgba(255, 255, 255, 0.95);
   --footer-text-muted: rgba(255, 255, 255, 0.85);
 }

@@ -6,7 +6,7 @@
 /** Nombres de la pareja (para hero, footer, ics, etc.) */
 export const couple = {
   name1: "Miguel",
-  name2: "Maria Jose",
+  name2: "María José",
 } as const;
 
 /** Nombre formateado para mostrar (ej. "Miguel & Maria Jose") */
@@ -96,9 +96,9 @@ export const scheduleEvents: ReadonlyArray<{
   { time: "12:00", title: "Ceremonia", description: "Nos damos el sí", icon: "heart" },
   { time: "13:30", title: "Cóctel", description: "Copa de espera", icon: "wine" },
   { time: "15:00", title: "Almuerzo", description: "Banquete nupcial", icon: "utensilsCrossed" },
-  { time: "19:00", title: "Primer baile", description: "Nuestro momento", icon: "music2" },
-  { time: "19:10", title: "Fiesta", description: "¡A bailar!", icon: "music" },
-  { time: "00:00", title: "Fin de fiesta", description: "Hasta pronto", icon: "sparkles" },
+  { time: "18:30", title: "Primer baile", description: "Nuestro momento", icon: "music2" },
+  { time: "18:40", title: "Fiesta", description: "¡A bailar!", icon: "music" },
+  { time: "23:00", title: "Fin de fiesta", description: "Hasta pronto", icon: "sparkles" },
 ];
 
 /** Textos de la sección lugar */

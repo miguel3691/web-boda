@@ -15,7 +15,7 @@ const FAQ_ITEMS = [
     icon: Bus,
     question: "¿Cómo llegar desde la iglesia al banquete?",
     answer:
-      "Hemos preparado un autobús privado para llevaros hasta el lugar del banquete. Saldrá a las 13:15 desde la Avenida de Cervantes, 17 —apenas dos minutos a pie desde la iglesia—. Solo tenéis que seguir a la gente guapa.",
+      "Hemos preparado un autobús privado para llevaros hasta el lugar del banquete. Saldrá a las 13:15 desde la Avenida de Cervantes, 16 —apenas dos minutos a pie desde la iglesia—. Solo tenéis que seguir a la gente guapa.",
   },
   {
     icon: Undo2,
